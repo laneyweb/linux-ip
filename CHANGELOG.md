@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.3.1] - 2026-10-02
+### Added
+- Interactive rows repaint on a solid background for keyboard cursor and
+  mouse hover, so the copy target stands out btop-style.
+### Fixed
+- `install.sh` works without root: sudo when available, else `~/.local/bin`
+  fallback with `PATH` hint; checksum step uses the real archive filename.
+
 ## [v0.3.0] - 2026-10-02
 ### Added
 - Interactive fullscreen dashboard (`-i`, `--interactive`): btop-style live
