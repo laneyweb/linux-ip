@@ -31,9 +31,16 @@ type InteractiveOptions struct {
 }
 
 // contentLine is one body row; copy != "" means click/Enter copies it.
+// Rows keep unstyled parts (label/shown/extra) so the cursor/hover
+// highlight can repaint them on one solid background; text holds the
+// normal styled rendering. Sections and static lines use text only.
 type contentLine struct {
-	text string
-	copy string
+	text  string
+	label string
+	shown string // display value (shown column; copy holds the raw value)
+	extra string
+	copy  string
+	row   bool
 }
 
 // tickMsg triggers a re-collect; publicIPMsg delivers the async lookup.
@@ -46,6 +53,7 @@ type imodel struct {
 	snap   netinfo.Snapshot
 	lines  []contentLine
 	cursor int // index into lines (always on a copyable line)
+	hover  int // line index under the mouse (-1 = none)
 	offset int // scroll offset into lines
 	width  int
 	height int
@@ -66,6 +74,7 @@ func RunInteractive(o InteractiveOptions) error {
 		opts:  o,
 		theme: NewTheme(true),
 		rates: map[string]string{},
+		hover: -1,
 	}
 	m.theme.ShowIPv6 = o.ShowIPv6
 	m.refresh()
@@ -119,7 +128,15 @@ func (m *imodel) refresh() {
 	}
 	m.updateRates()
 	m.lines = m.buildLines()
+	m.hover = -1 // positional hover goes stale across rebuilds
+	// Land the cursor on a copyable row (line 0 is a section header).
 	m.cursor = 0
+	for _, idx := range m.copyables() {
+		if idx >= m.cursor {
+			m.cursor = idx
+			break
+		}
+	}
 	if keep != "" {
 		for i, l := range m.lines {
 			if l.copy != "" && l.copy == keep {
@@ -289,16 +306,23 @@ func (m imodel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft {
 			if idx := m.lineAt(msg.Y); idx >= 0 && m.lines[idx].copy != "" {
 				m.cursor = idx
+				m.hover = idx
 				m.doCopy(m.lines[idx].copy)
 			}
+		} else if msg.Action == tea.MouseActionMotion {
+			// Hover highlight follows the mouse without moving the cursor,
+			// so Enter still copies the keyboard-selected row.
+			m.hover = m.lineAt(msg.Y)
 		}
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "q", "esc", "ctrl+c":
 			return m, tea.Quit
 		case "up", "k":
+			m.hover = -1 // keyboard takes over; drop the mouse highlight
 			m.moveCursor(-1)
 		case "down", "j":
+			m.hover = -1
 			m.moveCursor(1)
 		case "enter", "c", " ":
 			if m.cursor < len(m.lines) {
@@ -366,6 +390,17 @@ func modeName(advanced bool) string {
 	return "basic"
 }
 
+// renderSelected repaints a row (marker + unstyled parts) on the solid
+// cursor/hover background. Parts are used instead of the styled text
+// because inner ANSI resets would punch holes in the background.
+func (m imodel) renderSelected(marker string, l contentLine) string {
+	s := fmt.Sprintf("%-10s %s", l.label, l.shown)
+	if l.extra != "" {
+		s += "  " + l.extra
+	}
+	return m.theme.Sel.Render(marker + s)
+}
+
 // View implements tea.Model.
 func (m imodel) View() string {
 	if !m.ready {
@@ -384,9 +419,13 @@ func (m imodel) View() string {
 			marker = "• "
 			if i == m.cursor {
 				marker = "▸ "
-				b.WriteString(m.theme.OK.Render(marker + l.text) + "\n")
-				continue
 			}
+		}
+		// Cursor (arrows) and hover (mouse) both repaint the row on one
+		// solid background so the copy target stands out btop-style.
+		if l.row && l.copy != "" && (i == m.cursor || i == m.hover) {
+			b.WriteString(m.renderSelected(marker, l) + "\n")
+			continue
 		}
 		b.WriteString(marker + l.text + "\n")
 	}
@@ -414,7 +453,7 @@ func (m imodel) buildLines() []contentLine {
 		if extra != "" {
 			line += "  " + t.Dim.Render(extra)
 		}
-		out = append(out, contentLine{text: line, copy: value})
+		out = append(out, contentLine{text: line, label: label, shown: value, extra: extra, copy: value, row: true})
 	}
 	plain := func(s string) { out = append(out, contentLine{text: s}) }
 
@@ -460,18 +499,21 @@ func (m imodel) buildLines() []contentLine {
 			t.Value.Render(ii.Name), t.Dim.Render(ii.OperState),
 			t.Value.Render(v4), t.Dim.Render(ii.MAC),
 			t.Dim.Render(ii.Kind), t.Dim.Render(r))
-		out = append(out, contentLine{text: line, copy: first})
+		extra := strings.Join([]string{ii.OperState, ii.MAC, ii.Kind, r}, " ")
+		out = append(out, contentLine{text: line, label: ii.Name, shown: v4, extra: extra, copy: first, row: true})
 		// Extra IPv4s on the same iface each get their own copyable row.
 		if len(ii.IPv4) > 1 {
 			for _, a := range ii.IPv4[1:] {
 				l := fmt.Sprintf("%-10s %s/%d", "", a.IP, a.PrefixLen)
-				out = append(out, contentLine{text: l, copy: a.IP})
+				shown := fmt.Sprintf("%s/%d", a.IP, a.PrefixLen)
+				out = append(out, contentLine{text: l, shown: shown, copy: a.IP, row: true})
 			}
 		}
 		if m.theme.ShowIPv6 {
 			for _, a := range ii.IPv6 {
 				l := fmt.Sprintf("%-10s %s/%d %s", "", a.IP, a.PrefixLen, t.Dim.Render("v6"))
-				out = append(out, contentLine{text: l, copy: a.IP})
+				shown := fmt.Sprintf("%s/%d", a.IP, a.PrefixLen)
+				out = append(out, contentLine{text: l, shown: shown, extra: "v6", copy: a.IP, row: true})
 			}
 		}
 	}

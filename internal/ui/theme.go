@@ -18,6 +18,7 @@ type Theme struct {
 	Dim     lipgloss.Style
 	OK      lipgloss.Style
 	Warn    lipgloss.Style
+	Sel     lipgloss.Style
 	Box     lipgloss.Style
 	Enabled bool
 	// ShowIPv6 mirrors the --ip6 flag so the UI can hint hidden addresses.
@@ -50,6 +51,11 @@ func NewTheme(enabled bool) Theme {
 			Bold(true),
 		Warn: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FACC15")).
+			Bold(true),
+		// Sel is the cursor/hover row background (click/arrow target).
+		Sel: lipgloss.NewStyle().
+			Background(lipgloss.Color("#264F78")).
+			Foreground(lipgloss.Color("#FFFFFF")).
 			Bold(true),
 		Box: lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
