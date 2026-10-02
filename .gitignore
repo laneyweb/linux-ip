@@ -1,0 +1,15 @@
+# Binaries and build output
+linux-ip
+dist/
+*.tar.gz
+
+# Go
+*.test
+*.out
+/vendor/
+
+# Editor / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store

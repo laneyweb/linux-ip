@@ -1,0 +1,41 @@
+.TH LINUX-IP 1 "October 2026" "linux-ip" "User Commands"
+.SH NAME
+linux-ip \- modern Linux networking dashboard
+.SH SYNOPSIS
+.B linux-ip
+[\fB-a\fR|\fB--advanced\fR] [\fB--json\fR] [\fB--no-color\fR] [\fB--public-ip\fR] [\fB--copy\fR \fIFIELD\fR]
+.SH DESCRIPTION
+Shows all IP / networking info (interfaces, gateways, routes, DNS, WiFi,
+listening ports, firewall) in a modern CLI view. Portable across Ubuntu
+and Fedora; never requires root.
+.SH OPTIONS
+.TP
+.BR -a ", " --advanced
+Show sysadmin detail view (routes, DNS detail, all interfaces, ports, firewall).
+.TP
+.B --json
+Machine-readable JSON output.
+.TP
+.B --no-color
+Plain text output. Also honors NO_COLOR.
+.TP
+.B --public-ip
+Opt-in public IP lookup via https://api.ipify.org. Off by default.
+.TP
+.BR --copy " " \fIFIELD\fR
+Copy one value to clipboard: ip4|gateway|dns|public|mac.
+Uses wl-copy, xclip/xsel, or OSC52 fallback.
+.TP
+.BR -v ", " --version
+Print version.
+.SH EXAMPLES
+linux-ip
+.br
+linux-ip --advanced
+.br
+linux-ip --json | jq .interfaces
+.br
+linux-ip --copy ip4
+.SH SEE ALSO
+.BR ip (8),
+.BR ss (8)

@@ -1,0 +1,26 @@
+# GoReleaser — builds versioned tarballs consumed by install.sh.
+# Run: goreleaser release --clean (tags v* trigger this in CI).
+version: 2
+project_name: linux-ip
+builds:
+  - id: linux-ip
+    main: ./cmd/linux-ip
+    binary: linux-ip
+    goos: [linux]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+archives:
+  - id: default
+    name_template: "linux-ip_{{ .Version }}_linux_{{ .Arch }}"
+    formats: [tar.gz]
+    files:
+      - README.md
+      - LICENSE
+      - man/linux-ip.1
+checksum:
+  name_template: "checksums.txt"
+release:
+  github:
+    owner: laneyweb
+    name: linux-ip
