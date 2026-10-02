@@ -9,6 +9,11 @@ curl -fsSL https://raw.githubusercontent.com/laneyweb/linux-ip/main/install.sh |
 Installs the latest GitHub release binary for your arch (`x86_64`/`arm64`)
 to `/usr/local/bin/linux-ip` with checksum verification when available.
 
+No root? The script uses `sudo` when `/usr/local/bin` isn't writable,
+otherwise falls back to `~/.local/bin/linux-ip` (it prints a `PATH` hint
+if needed). Non-interactive sudo (password prompt with no TTY) also falls
+back instead of failing.
+
 Env overrides:
 
 ```bash

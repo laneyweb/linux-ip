@@ -39,6 +39,20 @@ tar -xzf "$TMP/$FILE" -C "$TMP"
 
 BIN="$TMP/linux-ip"
 [ -x "$BIN" ] || BIN="$(find "$TMP" -name linux-ip -type f | head -1)"
-install -m 0755 "$BIN" "$PREFIX/linux-ip"
+# Non-root friendly: use sudo when PREFIX isn't writable, else ~/.local/bin.
+if [ -w "$PREFIX" ]; then
+  install -m 0755 "$BIN" "$PREFIX/linux-ip"
+elif command -v sudo >/dev/null 2>&1 && sudo install -m 0755 "$BIN" "$PREFIX/linux-ip" 2>/dev/null; then
+  echo "→ installed to $PREFIX with sudo"
+else
+  [ -w "$PREFIX" ] || echo "→ $PREFIX not writable (sudo unavailable/declined), using ~/.local/bin"
+  PREFIX="$HOME/.local/bin"
+  mkdir -p "$PREFIX"
+  install -m 0755 "$BIN" "$PREFIX/linux-ip"
+  case ":$PATH:" in
+    *":$PREFIX:"*) ;;
+    *) echo "  NOTE: $PREFIX is not on your PATH — add: export PATH=\"\$HOME/.local/bin:\$PATH\"" ;;
+  esac
+fi
 echo "✓ installed $("$PREFIX/linux-ip" --version) to $PREFIX/linux-ip"
 echo "  try: linux-ip --help"
