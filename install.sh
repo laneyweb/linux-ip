@@ -23,18 +23,19 @@ if [ "$tag" = "latest" ]; then
 fi
 
 A="$(arch)"
-URL="https://github.com/${REPO}/releases/download/${tag}/linux-ip_${tag#v}_linux_${A}.tar.gz"
+FILE="linux-ip_${tag#v}_linux_${A}.tar.gz"
+URL="https://github.com/${REPO}/releases/download/${tag}/${FILE}"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 echo "→ downloading $URL"
-curl -fsSL -o "$TMP/linux-ip.tar.gz" "$URL"
+curl -fsSL -o "$TMP/$FILE" "$URL"
 # checksum verify against GoReleaser's checksums.txt (skipped if absent)
 if curl -fsSL -o "$TMP/checksums.txt" "https://github.com/${REPO}/releases/download/${tag}/checksums.txt" 2>/dev/null; then
-  (cd "$TMP" && grep "linux-ip_${tag#v}_linux_${A}.tar.gz" checksums.txt > sha256 && sha256sum -c sha256 --status) \
+  (cd "$TMP" && grep "$FILE" checksums.txt > sha256 && sha256sum -c sha256 --status) \
     && echo "→ checksum ok" || { echo "checksum FAILED" >&2; exit 1; }
 fi
-tar -xzf "$TMP/linux-ip.tar.gz" -C "$TMP"
+tar -xzf "$TMP/$FILE" -C "$TMP"
 
 BIN="$TMP/linux-ip"
 [ -x "$BIN" ] || BIN="$(find "$TMP" -name linux-ip -type f | head -1)"
