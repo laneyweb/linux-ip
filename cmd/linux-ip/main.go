@@ -32,6 +32,8 @@ func main() {
 	advanced := flag.Bool("advanced", false, "show sysadmin detail view")
 	flag.BoolVar(advanced, "a", false, "show sysadmin detail view (shorthand)")
 	jsonOut := flag.Bool("json", false, "output JSON instead of dashboard")
+	interactive := flag.Bool("interactive", false, "fullscreen live dashboard (click/Enter to copy)")
+	flag.BoolVar(interactive, "i", false, "fullscreen live dashboard (shorthand)")
 	noColor := flag.Bool("no-color", false, "disable colors")
 	showIPv6 := flag.Bool("ip6", false, "include IPv6 addresses and routes")
 	flag.BoolVar(showIPv6, "ipv6", false, "include IPv6 addresses and routes (alias)")
@@ -54,6 +56,24 @@ func main() {
 	}
 
 	snap := netinfo.Collect(netinfo.Options{PublicIP: *publicIP, IncludeIPv6: *showIPv6})
+
+	// Fullscreen live view (btop-style, click/Enter to copy).
+	if *interactive {
+		if *jsonOut {
+			fmt.Fprintln(os.Stderr, "error: --interactive and --json are mutually exclusive")
+			os.Exit(1)
+		}
+		err := ui.RunInteractive(ui.InteractiveOptions{
+			Advanced: *advanced,
+			ShowIPv6: *showIPv6,
+			PublicIP: *publicIP,
+		})
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "error: "+err.Error())
+			os.Exit(1)
+		}
+		return
+	}
 
 	// --copy resolves a single field and exits (works in both views).
 	if *copyField != "" {

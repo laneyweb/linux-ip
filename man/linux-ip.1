@@ -3,7 +3,7 @@
 linux-ip \- modern Linux networking dashboard
 .SH SYNOPSIS
 .B linux-ip
-[\fB-a\fR|\fB--advanced\fR] [\fB--json\fR] [\fB--no-color\fR] [\fB--ip6\fR] [\fB--public-ip\fR] [\fB--copy\fR \fIFIELD\fR]
+[\fB-a\fR|\fB--advanced\fR] [\fB-i\fR|\fB--interactive\fR] [\fB--json\fR] [\fB--no-color\fR] [\fB--ip6\fR] [\fB--public-ip\fR] [\fB--copy\fR \fIFIELD\fR]
 .SH DESCRIPTION
 Shows all IP / networking info (interfaces, gateways, routes, DNS, WiFi,
 listening ports, firewall) in a modern CLI view. Portable across Ubuntu
@@ -12,6 +12,10 @@ and Fedora; never requires root.
 .TP
 .BR -a ", " --advanced
 Show sysadmin detail view (routes, DNS detail, all interfaces, ports, firewall).
+.TP
+.BR -i ", " --interactive
+Fullscreen live dashboard with click-to-copy and 2s refresh.
+Incompatible with --json; requires a terminal.
 .TP
 .B --json
 Machine-readable JSON output.

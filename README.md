@@ -10,6 +10,7 @@ Built as a single Go binary — no Python, no pip — so the same file works on 
 curl -fsSL https://raw.githubusercontent.com/laneyweb/linux-ip/main/install.sh | bash
 linux-ip               # basic view
 linux-ip --advanced    # sysadmin detail (routes, DNS, ports, firewall)
+linux-ip -i            # fullscreen live dashboard (click/Enter copies IPs)
 linux-ip --json        # scriptable output
 ```
 
@@ -29,6 +30,7 @@ detect-only (`ufw`/`firewalld`/`nft`/`iptables`), VPN/Docker/virtual flags.
 | Flag | Description |
 |------|-------------|
 | `-a, --advanced` | sysadmin detail view |
+| `-i, --interactive` | fullscreen live dashboard (btop-style, click/Enter to copy) |
 | `--json` | JSON output (for scripts) |
 | `--no-color` | plain text (also honors `NO_COLOR`) |
 | `--ip6, --ipv6` | include IPv6 addresses, v6 routes, v6 DNS (default: IPv4 only) |
@@ -43,6 +45,18 @@ default-route link), not the `127.0.0.53` systemd-resolved stub. VPN links
 
 Tailscale (when installed and logged in) gets a `TAILSCALE:` line in basic
 and a full section in advanced (self `100.x` IP, hostname, peer count).
+
+## Interactive mode (`-i`)
+
+Fullscreen btop-style dashboard with 2s auto-refresh and live per-interface
+throughput (`↓22KB/s ↑727B/s`, sourced from sysfs — no root needed):
+
+- **Click** any highlighted IP/DNS/gateway, or navigate with `↑↓`/`j/k` and
+  press `Enter`/`c`, to copy it (`wl-copy` → `xclip`/`xsel` → OSC52).
+- `a` toggles basic/advanced, `p` fetches the public IP (opt-in),
+  `r` refreshes now, `g`/`G` jump top/bottom, `q` quits.
+- Honors `--advanced` (start advanced) and `--ip6`; `--json` is rejected
+  with `--interactive`. Requires a terminal.
 
 Clipboard backends: `wl-copy` (Wayland) → `xclip`/`xsel` (X11) → OSC52
 (SSH). Prints the value with a hint when no backend is available.

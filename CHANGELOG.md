@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- Interactive fullscreen dashboard (`-i`, `--interactive`): btop-style live
+  view with 2s refresh, per-interface throughput rates, mouse click or
+  Enter to copy any IP/DNS/gateway, `a`/`p`/`r`/`g`/`G`/`q` keys.
 
 ## [v0.2.0] - 2026-10-02
 ### Fixed
