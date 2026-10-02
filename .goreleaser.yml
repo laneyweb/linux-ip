@@ -12,7 +12,8 @@ builds:
       - -s -w -X main.version={{.Version}}
 archives:
   - id: default
-    name_template: "linux-ip_{{ .Version }}_linux_{{ .Arch }}"
+    # Map Go's amd64 -> x86_64 so names match what install.sh expects.
+    name_template: "linux-ip_{{ .Version }}_linux_{{ if eq .Arch `amd64` }}x86_64{{ else }}{{ .Arch }}{{ end }}"
     formats: [tar.gz]
     files:
       - README.md

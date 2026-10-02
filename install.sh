@@ -29,9 +29,10 @@ trap 'rm -rf "$TMP"' EXIT
 
 echo "→ downloading $URL"
 curl -fsSL -o "$TMP/linux-ip.tar.gz" "$URL"
-# checksum verify when .sha256 is published
-if curl -fsSL -o "$TMP/sha256" "${URL}.sha256" 2>/dev/null; then
-  (cd "$TMP" && sha256sum -c sha256 --status) && echo "→ checksum ok" || { echo "checksum FAILED" >&2; exit 1; }
+# checksum verify against GoReleaser's checksums.txt (skipped if absent)
+if curl -fsSL -o "$TMP/checksums.txt" "https://github.com/${REPO}/releases/download/${tag}/checksums.txt" 2>/dev/null; then
+  (cd "$TMP" && grep "linux-ip_${tag#v}_linux_${A}.tar.gz" checksums.txt > sha256 && sha256sum -c sha256 --status) \
+    && echo "→ checksum ok" || { echo "checksum FAILED" >&2; exit 1; }
 fi
 tar -xzf "$TMP/linux-ip.tar.gz" -C "$TMP"
 

@@ -94,3 +94,12 @@ is the opt-in `--public-ip` lookup.
 ## Versioning
 
 SemVer (`v0.1.0`, `v0.2.0`…). Tags + GitHub Releases + `CHANGELOG.md`.
+
+Releases are published by CI — do NOT create them manually (GoReleaser
+fails with `already_exists` if the release/assets exist):
+
+```bash
+# update CHANGELOG.md, then:
+git tag -a v0.3.0 -m "v0.3.0 ..."
+git push origin v0.3.0   # CI builds x86_64/arm64 + publishes the release
+```
