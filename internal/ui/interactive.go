@@ -145,7 +145,24 @@ func (m *imodel) refresh() {
 			}
 		}
 	}
-	m.ensureVisible()
+	// Clamp the viewport but never yank it: a wheel-scrolled user stays
+	// where they are across refresh ticks. Keyboard moves re-show the
+	// cursor via ensureVisible in moveCursor.
+	m.clampOffset()
+}
+
+// clampOffset keeps the scroll offset inside the rebuilt content.
+func (m *imodel) clampOffset() {
+	max := len(m.lines) - m.visibleRows()
+	if max < 0 {
+		max = 0
+	}
+	if m.offset > max {
+		m.offset = max
+	}
+	if m.offset < 0 {
+		m.offset = 0
+	}
 }
 
 // keepPublicIP caches the async lookup so refreshes don't drop it.
@@ -237,16 +254,7 @@ func (m *imodel) moveCursor(dir int) {
 // scroll moves the viewport by delta lines, clamped to the content.
 func (m *imodel) scroll(delta int) {
 	m.offset += delta
-	max := len(m.lines) - m.visibleRows()
-	if max < 0 {
-		max = 0
-	}
-	if m.offset > max {
-		m.offset = max
-	}
-	if m.offset < 0 {
-		m.offset = 0
-	}
+	m.clampOffset()
 }
 
 // visibleRows is the body height after the frozen header and footer.
