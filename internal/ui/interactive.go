@@ -234,6 +234,21 @@ func (m *imodel) moveCursor(dir int) {
 	m.ensureVisible()
 }
 
+// scroll moves the viewport by delta lines, clamped to the content.
+func (m *imodel) scroll(delta int) {
+	m.offset += delta
+	max := len(m.lines) - m.visibleRows()
+	if max < 0 {
+		max = 0
+	}
+	if m.offset > max {
+		m.offset = max
+	}
+	if m.offset < 0 {
+		m.offset = 0
+	}
+}
+
 // visibleRows is the body height after the frozen header and footer.
 func (m imodel) visibleRows() int {
 	n := m.height - m.headerHeight() - 2
@@ -302,6 +317,17 @@ func (m imodel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.toast = "public IP lookup failed"
 		}
 	case tea.MouseMsg:
+		// Wheel scrolls the body without moving the keyboard cursor.
+		// (msg.Button is checked directly: IsWheel lives on MouseEvent,
+		// which MouseMsg doesn't inherit methods from.)
+		switch msg.Button {
+		case tea.MouseButtonWheelUp:
+			m.scroll(-3)
+			return m, nil
+		case tea.MouseButtonWheelDown:
+			m.scroll(3)
+			return m, nil
+		}
 		// Left-click on a copyable row copies it (btop-style picking).
 		if msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft {
 			if idx := m.lineAt(msg.Y); idx >= 0 && m.lines[idx].copy != "" {
@@ -430,7 +456,7 @@ func (m imodel) View() string {
 		b.WriteString(marker + l.text + "\n")
 	}
 	// Footer: toast (confirmation) + key hints.
-	foot := "↑↓/click copy · enter copy · a advanced · p public-ip · r refresh · q quit"
+	foot := "↑↓/wheel scroll · click/enter copy · a advanced · p public-ip · r refresh · q quit"
 	if m.toast != "" {
 		foot = m.toast + "  ·  " + "q quit"
 		b.WriteString(m.theme.Warn.Render(foot) + "\n")
