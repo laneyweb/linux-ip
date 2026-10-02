@@ -31,9 +31,18 @@ detect-only (`ufw`/`firewalld`/`nft`/`iptables`), VPN/Docker/virtual flags.
 | `-a, --advanced` | sysadmin detail view |
 | `--json` | JSON output (for scripts) |
 | `--no-color` | plain text (also honors `NO_COLOR`) |
+| `--ip6, --ipv6` | include IPv6 addresses, v6 routes, v6 DNS (default: IPv4 only) |
 | `--public-ip` | **opt-in** public IP lookup via `https://api.ipify.org` |
-| `--copy <field>` | copy to clipboard: `ip4\|gateway\|dns\|public\|mac` |
+| `--copy <field>` | copy to clipboard: `ip4\|ip6\|gateway\|dns\|public\|mac\|tailscale` |
 | `-v, --version` | print version |
+
+DNS shows the **effective uplink servers** (e.g. `192.168.1.188` from the
+default-route link), not the `127.0.0.53` systemd-resolved stub. VPN links
+(NordVPN `~.` catch-all, Tailscale `100.100.100.100`) are listed too — see
+`--advanced` → DNS DETAIL for the per-link breakdown.
+
+Tailscale (when installed and logged in) gets a `TAILSCALE:` line in basic
+and a full section in advanced (self `100.x` IP, hostname, peer count).
 
 Clipboard backends: `wl-copy` (Wayland) → `xclip`/`xsel` (X11) → OSC52
 (SSH). Prints the value with a hint when no backend is available.

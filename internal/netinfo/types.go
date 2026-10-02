@@ -45,13 +45,29 @@ type Route struct {
 }
 
 // DNSInfo aggregates resolver configuration.
+//
+// On systemd-resolved systems (Ubuntu + Fedora 44 default) /etc/resolv.conf
+// is a stub pointing at 127.0.0.53 — NOT the real upstream server. The real
+// servers live in /run/systemd/resolve/resolv.conf and `resolvectl status`.
+// Effective holds the usable uplink servers (stub filtered out); Servers
+// keeps the raw stub file content for transparency in --advanced.
 type DNSInfo struct {
-	Servers   []string `json:"servers"`   // from /etc/resolv.conf
+	Servers   []string `json:"servers"`   // raw /etc/resolv.conf (may be stub)
+	Effective []string `json:"effective"` // usable uplink servers (stub filtered)
+	Current   string   `json:"current"`   // Current DNS Server of default-route link
 	Search    []string `json:"search"`    // search domains
 	Mode      string   `json:"mode"`      // stub, static, systemd-resolved, unknown
 	Resolved  []string `json:"resolved"`  // per-link servers from resolvectl (best-effort)
 	Source    string   `json:"source"`    // /etc/resolv.conf, etc.
 	SymlinkTo string   `json:"symlinkTo"` // where /etc/resolv.conf points
+}
+
+// DisplayServers returns what the UI and --copy should show.
+func (d DNSInfo) DisplayServers() []string {
+	if len(d.Effective) > 0 {
+		return d.Effective
+	}
+	return d.Servers
 }
 
 // WiFiInfo is best-effort wireless status for one interface.
@@ -65,6 +81,17 @@ type WiFiInfo struct {
 	State   string `json:"state"` // connected, disconnected, unavailable
 }
 
+// TailscaleInfo is best-effort Tailnet status (absent when not installed).
+type TailscaleInfo struct {
+	Active       bool     `json:"active"`
+	BackendState string   `json:"backendState,omitempty"` // Running, Stopped, ...
+	SelfIP       string   `json:"selfIp,omitempty"`       // 100.x.y.z
+	Hostname     string   `json:"hostname,omitempty"`
+	DNSName      string   `json:"dnsName,omitempty"`
+	PeerIDs      []string `json:"-"`
+	PeerCount    int      `json:"peerCount,omitempty"`
+	Summary      string   `json:"summary,omitempty"`
+}
 // PortInfo is a listening TCP/UDP socket (from `ss`, best-effort).
 type PortInfo struct {
 	Proto   string `json:"proto"`
@@ -91,6 +118,7 @@ type Snapshot struct {
 	Routes6       []Route         `json:"routes6"`
 	DNS           DNSInfo         `json:"dns"`
 	WiFi          []WiFiInfo      `json:"wifi"`
+	Tailscale     TailscaleInfo   `json:"tailscale"`
 	Listening     []PortInfo      `json:"listening"`
 	Firewall      FirewallInfo    `json:"firewall"`
 	PublicIP      string          `json:"publicIp,omitempty"` // only when --public-ip

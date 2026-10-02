@@ -25,12 +25,19 @@ func RenderAdvanced(s netinfo.Snapshot, t Theme) string {
 			b.WriteString(fmt.Sprintf("  %-30s via %-30s dev %s\n",
 				r.Destination, orDash(r.Gateway), orDash(r.Iface)))
 		}
+	} else if !t.ShowIPv6 {
+		b.WriteString(t.Dim.Render("  (IPv6 hidden — use --ip6 to show v6 routes)\n"))
 	}
 
 	b.WriteString(section(t, "DNS DETAIL"))
 	b.WriteString(fmt.Sprintf("  source: %s  symlink: %s  mode: %s\n",
 		s.DNS.Source, orDash(s.DNS.SymlinkTo), s.DNS.Mode))
-	b.WriteString(fmt.Sprintf("  servers: %s\n", strings.Join(s.DNS.Servers, ", ")))
+	// Effective first (what actually answers), raw stub file for transparency.
+	b.WriteString(fmt.Sprintf("  effective: %s\n", strings.Join(s.DNS.DisplayServers(), ", ")))
+	if s.DNS.Current != "" {
+		b.WriteString(fmt.Sprintf("  current: %s (default-route link)\n", s.DNS.Current))
+	}
+	b.WriteString(fmt.Sprintf("  stub file: %s\n", strings.Join(s.DNS.Servers, ", ")))
 	if len(s.DNS.Search) > 0 {
 		b.WriteString(fmt.Sprintf("  search: %s\n", strings.Join(s.DNS.Search, ", ")))
 	}
@@ -40,10 +47,25 @@ func RenderAdvanced(s netinfo.Snapshot, t Theme) string {
 
 	b.WriteString(section(t, "ALL INTERFACES"))
 	for _, ii := range s.Interfaces {
-		v6 := addrsToString(ii.IPv6)
-		b.WriteString(fmt.Sprintf("  %s %-10s mtu=%d mac=%s driver=%s duplex=%s ipv6=[%s]\n",
-			t.dot(ii.IsUp), ii.Name, ii.MTU, orDash(ii.MAC),
-			orDash(ii.Driver), orDash(ii.Duplex), orDash(v6)))
+		// IPv6 column only when --ip6; otherwise omit to keep rows short.
+		if t.ShowIPv6 {
+			v6 := addrsToString(ii.IPv6)
+			b.WriteString(fmt.Sprintf("  %s %-10s mtu=%d mac=%s driver=%s duplex=%s ipv6=[%s]\n",
+				t.dot(ii.IsUp), ii.Name, ii.MTU, orDash(ii.MAC),
+				orDash(ii.Driver), orDash(ii.Duplex), orDash(v6)))
+		} else {
+			b.WriteString(fmt.Sprintf("  %s %-10s mtu=%d mac=%s driver=%s duplex=%s\n",
+				t.dot(ii.IsUp), ii.Name, ii.MTU, orDash(ii.MAC),
+				orDash(ii.Driver), orDash(ii.Duplex)))
+		}
+	}
+
+	if s.Tailscale.Active || s.Tailscale.BackendState != "" {
+		b.WriteString(section(t, "TAILSCALE"))
+		b.WriteString(fmt.Sprintf("  state=%s self=%s host=%s dns=%s peers=%d\n",
+			orDash(s.Tailscale.BackendState), orDash(s.Tailscale.SelfIP),
+			orDash(s.Tailscale.Hostname), orDash(s.Tailscale.DNSName),
+			s.Tailscale.PeerCount))
 	}
 
 	if len(s.WiFi) > 0 {

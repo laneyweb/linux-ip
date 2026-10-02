@@ -5,8 +5,9 @@
 //	-a, --advanced   sysadmin detail view
 //	--json           machine-readable output (implies no lipgloss color)
 //	--no-color       plain text (also honors NO_COLOR env)
+//	--ip6            include IPv6 addresses and routes (default: IPv4 only)
 //	--public-ip      OPT-IN external IP lookup via api.ipify.org
-//	--copy <field>   copy one value to clipboard (ip4|ip6|gateway|dns|public|mac)
+//	--copy <field>   copy one value to clipboard (ip4|ip6|gateway|dns|public|mac|tailscale)
 //	-v, --version    print version
 package main
 
@@ -32,8 +33,10 @@ func main() {
 	flag.BoolVar(advanced, "a", false, "show sysadmin detail view (shorthand)")
 	jsonOut := flag.Bool("json", false, "output JSON instead of dashboard")
 	noColor := flag.Bool("no-color", false, "disable colors")
+	showIPv6 := flag.Bool("ip6", false, "include IPv6 addresses and routes")
+	flag.BoolVar(showIPv6, "ipv6", false, "include IPv6 addresses and routes (alias)")
 	publicIP := flag.Bool("public-ip", false, "opt-in public IP lookup (external request)")
-	copyField := flag.String("copy", "", "copy field to clipboard: ip4|ip6|gateway|dns|public|mac")
+	copyField := flag.String("copy", "", "copy field to clipboard: ip4|ip6|gateway|dns|public|mac|tailscale")
 	showVer := flag.Bool("version", false, "print version")
 	flag.BoolVar(showVer, "v", false, "print version (shorthand)")
 	flag.Parse()
@@ -50,7 +53,7 @@ func main() {
 		useColor = isatty.IsTerminal(os.Stdout.Fd())
 	}
 
-	snap := netinfo.Collect(netinfo.Options{PublicIP: *publicIP})
+	snap := netinfo.Collect(netinfo.Options{PublicIP: *publicIP, IncludeIPv6: *showIPv6})
 
 	// --copy resolves a single field and exits (works in both views).
 	if *copyField != "" {
@@ -80,6 +83,7 @@ func main() {
 	}
 
 	theme := ui.NewTheme(useColor)
+	theme.ShowIPv6 = *showIPv6
 	if *advanced {
 		fmt.Print(ui.RenderAdvanced(snap, theme))
 	} else {
@@ -95,16 +99,29 @@ func resolveField(s netinfo.Snapshot, field string) (string, error) {
 			return "", fmt.Errorf("no primary IPv4 (try --advanced)")
 		}
 		return s.PrimaryIPv4, nil
+	case "ip6", "ipv6":
+		for _, ii := range s.Interfaces {
+			if ii.Name == s.PrimaryIface && len(ii.IPv6) > 0 {
+				return ii.IPv6[0].IP, nil
+			}
+		}
+		return "", fmt.Errorf("no IPv6 on primary interface (run with --ip6)")
 	case "gateway", "gw":
 		if s.Gateway4 == "" {
 			return "", fmt.Errorf("no default gateway found")
 		}
 		return s.Gateway4, nil
 	case "dns":
-		if len(s.DNS.Servers) == 0 {
-			return "", fmt.Errorf("no DNS servers found")
+		// Effective uplink servers, not the 127.0.0.53 stub.
+		if servers := s.DNS.DisplayServers(); len(servers) > 0 {
+			return strings.Join(servers, ","), nil
 		}
-		return strings.Join(s.DNS.Servers, ","), nil
+		return "", fmt.Errorf("no DNS servers found")
+	case "tailscale", "ts":
+		if !s.Tailscale.Active {
+			return "", fmt.Errorf("tailscale not active")
+		}
+		return s.Tailscale.SelfIP, nil
 	case "public", "public-ip":
 		if s.PublicIP == "" {
 			return "", fmt.Errorf("no public IP (run with --public-ip)")
@@ -118,6 +135,6 @@ func resolveField(s netinfo.Snapshot, field string) (string, error) {
 		}
 		return "", fmt.Errorf("no primary interface MAC")
 	default:
-		return "", fmt.Errorf("unknown field %q (use ip4|gateway|dns|public|mac)", field)
+		return "", fmt.Errorf("unknown field %q (use ip4|ip6|gateway|dns|public|mac|tailscale)", field)
 	}
 }

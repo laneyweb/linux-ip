@@ -17,12 +17,20 @@ func RenderBasic(s netinfo.Snapshot, t Theme) string {
 	if primary == "" {
 		primary = "no global IPv4"
 	}
-	line := fmt.Sprintf("%s %s  %s %s  %s %s",
+	// Header box carries the key facts: primary IP, iface, gateway, DNS.
+	// DNS shows the effective uplink servers (stub 127.0.0.53 filtered out).
+	dns := strings.Join(s.DNS.DisplayServers(), ", ")
+	if dns == "" {
+		dns = "unknown"
+	}
+	box := fmt.Sprintf("%s %s  %s %s  %s %s\n%s %s %s",
 		t.Label.Render("PRIMARY"), t.Value.Render(primary),
 		t.Label.Render("IFACE"), t.Value.Render(orDash(s.PrimaryIface)),
 		t.Label.Render("GATEWAY"), t.Value.Render(orDash(s.Gateway4)),
+		t.Label.Render("DNS"), t.Value.Render(dns),
+		t.Dim.Render("("+s.DNS.Mode+")"),
 	)
-	b.WriteString(t.Box.Render(line) + "\n")
+	b.WriteString(t.Box.Render(box) + "\n")
 
 	// Interface rows: skip loopback in basic view for brevity.
 	for _, ii := range s.Interfaces {
@@ -32,15 +40,12 @@ func RenderBasic(s netinfo.Snapshot, t Theme) string {
 		b.WriteString(renderIfaceLine(ii, t) + "\n")
 	}
 
-	// DNS + WiFi one-liners.
-	dns := strings.Join(s.DNS.Servers, ", ")
-	if dns == "" {
-		dns = "unknown"
+	// Tailscale awareness: one line when the client is logged in.
+	if s.Tailscale.Active {
+		b.WriteString(fmt.Sprintf("%s %s\n",
+			t.Label.Render("TAILSCALE:"), t.Value.Render(s.Tailscale.Summary),
+		))
 	}
-	b.WriteString(fmt.Sprintf("%s %s   %s %s\n",
-		t.Label.Render("DNS:"), t.Value.Render(dns),
-		t.Dim.Render("("+s.DNS.Mode+")"), t.Dim.Render(copyHint()),
-	))
 	for _, w := range s.WiFi {
 		if w.State == "connected" {
 			b.WriteString(fmt.Sprintf("%s %s  %s %s\n",
@@ -54,7 +59,10 @@ func RenderBasic(s netinfo.Snapshot, t Theme) string {
 	} else {
 		b.WriteString(t.Dim.Render("PUBLIC: hidden (use --public-ip to opt in)") + "\n")
 	}
-	b.WriteString(t.Dim.Render("tips: -a advanced · --json · --copy ip4|gateway|dns|public") + "\n")
+	if !t.ShowIPv6 {
+		b.WriteString(t.Dim.Render("IPv6 hidden (use --ip6 to show)") + "\n")
+	}
+	b.WriteString(t.Dim.Render("tips: -a advanced · --json · --ip6 · --copy ip4|gateway|dns|public|tailscale") + "\n")
 	return b.String()
 }
 

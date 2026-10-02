@@ -3,7 +3,7 @@
 linux-ip \- modern Linux networking dashboard
 .SH SYNOPSIS
 .B linux-ip
-[\fB-a\fR|\fB--advanced\fR] [\fB--json\fR] [\fB--no-color\fR] [\fB--public-ip\fR] [\fB--copy\fR \fIFIELD\fR]
+[\fB-a\fR|\fB--advanced\fR] [\fB--json\fR] [\fB--no-color\fR] [\fB--ip6\fR] [\fB--public-ip\fR] [\fB--copy\fR \fIFIELD\fR]
 .SH DESCRIPTION
 Shows all IP / networking info (interfaces, gateways, routes, DNS, WiFi,
 listening ports, firewall) in a modern CLI view. Portable across Ubuntu
@@ -19,11 +19,15 @@ Machine-readable JSON output.
 .B --no-color
 Plain text output. Also honors NO_COLOR.
 .TP
+.BR --ip6 ", " --ipv6
+Include IPv6 addresses, v6 routes, and v6 DNS servers. Default is IPv4 only.
+.TP
 .B --public-ip
 Opt-in public IP lookup via https://api.ipify.org. Off by default.
 .TP
 .BR --copy " " \fIFIELD\fR
-Copy one value to clipboard: ip4|gateway|dns|public|mac.
+Copy one value to clipboard: ip4|ip6|gateway|dns|public|mac|tailscale.
+DNS copies the effective uplink servers, not the 127.0.0.53 stub.
 Uses wl-copy, xclip/xsel, or OSC52 fallback.
 .TP
 .BR -v ", " --version

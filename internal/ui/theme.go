@@ -20,6 +20,8 @@ type Theme struct {
 	Warn    lipgloss.Style
 	Box     lipgloss.Style
 	Enabled bool
+	// ShowIPv6 mirrors the --ip6 flag so the UI can hint hidden addresses.
+	ShowIPv6 bool
 }
 
 // NewTheme builds the default dark-terminal-friendly palette.

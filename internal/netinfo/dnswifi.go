@@ -12,7 +12,15 @@ import (
 	"time"
 )
 
-// collectDNS parses /etc/resolv.conf and enriches with resolvectl (best-effort).
+// collectDNS resolves the *effective* uplink DNS, not just the stub.
+//
+// Why: on systemd-resolved systems /etc/resolv.conf contains only
+// 127.0.0.53 (the local stub). The servers actually answering queries are:
+//   1. /run/systemd/resolve/resolv.conf (all known uplink servers), and
+//   2. `resolvectl status` per-link "Current DNS Server" entries.
+// VPNs (NordVPN/nordlynx with DNS Domain ~.) and Tailscale (100.100.100.100)
+// each add their own link, so we track the default-route link's Current
+// server separately (usually the LAN DNS, e.g. 192.168.1.188).
 func collectDNS() DNSInfo {
 	d := DNSInfo{Source: "/etc/resolv.conf"}
 	if target, err := os.Readlink("/etc/resolv.conf"); err == nil {
@@ -36,29 +44,95 @@ func collectDNS() DNSInfo {
 		}
 	}
 	if d.Mode == "" {
-		if len(d.Servers) == 1 && strings.HasPrefix(d.Servers[0], "127.0.0") {
+		if len(d.Servers) == 1 && isStub(d.Servers[0]) {
 			d.Mode = "stub"
 		} else {
 			d.Mode = "static"
 		}
 	}
-	// resolvectl gives per-link servers on systemd distros (both Ubuntu/Fedora).
+	// Source 1: uplink file with the real servers (stub never listed here).
+	if b, err := os.ReadFile("/run/systemd/resolve/resolv.conf"); err == nil {
+		for _, line := range strings.Split(string(b), "\n") {
+			f := strings.Fields(strings.TrimSpace(line))
+			if len(f) == 2 && f[0] == "nameserver" && !isStub(f[1]) {
+				d.Effective = appendIfMissing(d.Effective, f[1])
+			}
+		}
+	}
+	// Source 2: resolvectl per-link servers + Current DNS of default route.
 	if out, err := exec.Command("resolvectl", "status").Output(); err == nil {
-		d.Resolved = parseResolved(string(out))
+		current, defaultCurrent := parseResolvectl(string(out))
+		d.Resolved = current
+		d.Current = defaultCurrent
+		// Prefer the default-route link's Current server first (LAN DNS),
+		// then remaining uplink servers. Stub entries are dropped.
+		ordered := []string{}
+		if d.Current != "" && !isStub(d.Current) {
+			ordered = append(ordered, d.Current)
+		}
+		for _, entry := range current {
+			for _, ip := range strings.Fields(entry) {
+				if !isStub(ip) {
+					ordered = appendIfMissing(ordered, ip)
+				}
+			}
+		}
+		// Merge with the uplink file (keeps file order for the rest).
+		for _, ip := range ordered {
+			d.Effective = appendIfMissing(d.Effective, ip)
+		}
+		// Move Current to front so display order is LAN-first.
+		if d.Current != "" {
+			front := []string{d.Current}
+			for _, ip := range d.Effective {
+				if ip != d.Current {
+					front = append(front, ip)
+				}
+			}
+			d.Effective = front
+		}
 	}
 	return d
 }
 
-// parseResolved extracts "DNS Servers:" lines from resolvectl output.
-func parseResolved(s string) []string {
-	var out []string
-	for _, line := range strings.Split(s, "\n") {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "DNS Servers:") {
-			out = append(out, strings.TrimSpace(strings.TrimPrefix(line, "DNS Servers:")))
+// isStub reports loopback stub resolver addresses (not real upstream DNS).
+func isStub(ip string) bool {
+	return ip == "127.0.0.53" || ip == "127.0.0.1" || ip == "::1"
+}
+
+func appendIfMissing(list []string, v string) []string {
+	for _, x := range list {
+		if x == v {
+			return list
 		}
 	}
-	return out
+	return append(list, v)
+}
+
+// parseResolvectl extracts per-link "DNS Servers:" entries and the Current
+// DNS Server of the link marked +DefaultRoute (the LAN link).
+func parseResolvectl(s string) (servers []string, defaultCurrent string) {
+	var curCurrent string
+	var curDefault bool
+	for _, raw := range strings.Split(s, "\n") {
+		line := strings.TrimSpace(raw)
+		switch {
+		case strings.Contains(line, "+DefaultRoute"):
+			curDefault = true
+		case strings.HasPrefix(line, "Link "):
+			// New link block: commit previous tracking state.
+			curCurrent = ""
+			curDefault = strings.Contains(line, "+DefaultRoute")
+		case strings.HasPrefix(line, "Current DNS Server:"):
+			curCurrent = strings.TrimSpace(strings.TrimPrefix(line, "Current DNS Server:"))
+			if curDefault && defaultCurrent == "" && curCurrent != "" {
+				defaultCurrent = curCurrent
+			}
+		case strings.HasPrefix(line, "DNS Servers:"):
+			servers = append(servers, strings.TrimSpace(strings.TrimPrefix(line, "DNS Servers:")))
+		}
+	}
+	return servers, defaultCurrent
 }
 
 // collectWiFi queries `iw` then `nmcli` (both optional) per wireless iface.
